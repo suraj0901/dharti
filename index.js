@@ -1,3 +1,60 @@
+class Store {
+  #state;
+  constructor(obj) {
+    this.#state = obj;
+    Global.updateList.set(this, []);
+  }
+  get val() {
+    if (!Global.isMounted) Global.emit(this);
+    return this.#state;
+  }
+  set val(newVal) {
+    this.#state = newVal;
+    Global.runEffect(this);
+  }
+}
+
+class Global {
+  static listener = [];
+  static onMount = {
+    list: [],
+    add(callbacks) {
+      this.list.push(callbacks);
+    },
+    flush() {
+      const list = [...this.list];
+      this.list = [];
+      return list;
+    },
+  };
+  static updateList = new Map();
+  static isMounted = false;
+  static runEffect(changed) {
+    const list = this.updateList.get(changed);
+    for (const value of list) value();
+  }
+  static emit(emitted) {
+    this.listener.push(emitted);
+  }
+  static addEffect(callback, dependencies) {
+    if (!dependencies.length) return;
+    for (const dependency of dependencies) {
+      this.updateList.get(dependency).push(callback);
+    }
+  }
+  static getDependencies(callback) {
+    const result = callback();
+    const dependencies = [...this.listener];
+    this.listener = [];
+    return [result, dependencies];
+  }
+  static subScribe(callback, updateFunc) {
+    const [result, dependencies] = Global.getDependencies(callback);
+    Global.addEffect(updateFunc, dependencies);
+    return result;
+  }
+}
+
 class Util {
   static createTextNode(text) {
     return {
@@ -171,63 +228,6 @@ class Util {
         for (const callback of onUnmount) callback();
       },
     };
-  }
-}
-
-class Global {
-  static listener = [];
-  static onMount = {
-    list: [],
-    add(callbacks) {
-      this.list.push(callbacks);
-    },
-    flush() {
-      const list = [...this.list];
-      this.list = [];
-      return list;
-    },
-  };
-  static updateList = new Map();
-  static isMounted = false;
-  static runEffect(changed) {
-    const list = this.updateList.get(changed);
-    for (const value of list) value();
-  }
-  static emit(emitted) {
-    this.listener.push(emitted);
-  }
-  static addEffect(callback, dependencies) {
-    if (!dependencies.length) return;
-    for (const dependency of dependencies) {
-      this.updateList.get(dependency).push(callback);
-    }
-  }
-  static getDependencies(callback) {
-    const result = callback();
-    const dependencies = [...this.listener];
-    this.listener = [];
-    return [result, dependencies];
-  }
-  static subScribe(callback, updateFunc) {
-    const [result, dependencies] = Global.getDependencies(callback);
-    Global.addEffect(updateFunc, dependencies);
-    return result;
-  }
-}
-
-class Store {
-  #state;
-  constructor(obj) {
-    this.#state = obj;
-    Global.updateList.set(this, []);
-  }
-  get val() {
-    if (!Global.isMounted) Global.emit(this);
-    return this.#state;
-  }
-  set val(newVal) {
-    this.#state = newVal;
-    Global.runEffect(this);
   }
 }
 
