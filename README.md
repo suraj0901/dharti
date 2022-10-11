@@ -1,7 +1,9 @@
 # reactive
-## Easy, lighwight and fast library for build UI interface
-## Close to React or Preact or Solid 
-## it require @vitejs/reactive-plugin 
+- Easy, lighwight and fast library for build UI interface
+- Close to React or Preact or Solid .....
+- No Virtual DOM
+- Default state managment is enough don't require any external library
+- it require @vitejs/reactive-plugin 
 
 Counter.jsx
 ```js
