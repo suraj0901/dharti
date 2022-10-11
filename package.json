@@ -1,0 +1,16 @@
+{
+  "name": "reactive",
+  "version": "0.0.1",
+  "description": "easy, light and fast library or building user interface",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "reactive",
+    "reactivejs"
+  ],
+  "author": "suraj",
+  "license": "ISC"
+}
