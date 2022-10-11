@@ -1,13 +1,13 @@
-# reactive
+# dharti
 - Easy, lighwight and fast library for build UI interface
 - Close to React or Preact or Solid .....
 - No Virtual DOM
 - Default state managment is enough don't require any external library
-- it require @vitejs/reactive-plugin 
+- it require @vitejs/dharti-plugin 
 
 Counter.jsx
 ```js
-import { useState, If } from "reactive";
+import { useState, If } from "dharti";
 import Button from "./Button";
 const Counter = () => {
   const count = useState(0);
@@ -41,7 +41,7 @@ export default Button;
 main.js
 ```js
 import Counter from "./src/counter";
-import React from "reactive";
+import Dharti from "dharti";
 
-Reactive.mount(Counter, document.getElementById("app"));
+Dharti.mount(Counter, document.getElementById("app"));
 ```
