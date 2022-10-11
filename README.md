@@ -22,3 +22,19 @@ const Counter = () => {
 
 export default Counter;
 ```
+
+```js
+const Button = ({ children, onClick }) => {
+  return <button onClick={onClick()}>{children}</button>;
+};
+
+export default Button;
+
+```
+
+```js
+import Counter from "./src/counter";
+import React from "reactive";
+
+Reactive.mount(Counter, document.getElementById("app"));
+```
