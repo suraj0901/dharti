@@ -78,12 +78,17 @@ class Util {
       condition: true,
       create() {
         Util.handleCreateChildren(children);
+        this?.anchor?.create();
       },
       mount(target, anchor) {
-        if (this.condition) for (const el of children) el.mount(target, anchor);
+        for (const el of children) el.mount(target, anchor);
+        this?.anchor?.mount(target, anchor);
       },
       delete() {
-        for (const el of children) el.delete();
+        for (const el of children) {
+          el.delete();
+          el?.anchor?.delete();
+        }
       },
     };
   }
@@ -98,18 +103,19 @@ class Util {
         case /^on/.test(prop): {
           const eventName = prop.slice(2).toLowerCase();
           const event = attributes[prop];
-          console.table("onclick", eventName, event());
           tag.addEventListener(eventName, event());
           destroy.push(() => tag.removeEventListener(eventName, event()));
           break;
         }
         case /^bind:/.test(prop): {
-          const value = attributes[prop];
-          const propName = prop.slice(5);
-          tag.addEventListener("input", ({ target }) =>
-            value(target[propName])
-          );
-          Global.subScribe(value, () => (tag[propName] = value()));
+          const value = prop.slice(5);
+          const callback = attributes[prop]();
+          const event =
+            tag.type === "number" || tag.type === "text" ? "input" : "change";
+          const fn = ({ target }) => callback(target[value]);
+          tag.addEventListener(event, fn);
+          destroy.push(() => tag.removeEventListener(event, fn));
+          Global.subScribe(callback, () => (tag[value] = callback()));
         }
         case /key/.test(prop): {
           break;
@@ -175,7 +181,6 @@ class Util {
       const child = children[id];
       switch (typeof child) {
         case "object": {
-          child?.anchor?.create();
           child.create();
           break;
         }
@@ -189,7 +194,6 @@ class Util {
         }
         case "function": {
           children[id] = Util.handleDynamicJSX(child);
-          children[id]?.anchor?.create();
           children[id].create();
           break;
         }
@@ -213,7 +217,6 @@ class Util {
       mount(target, anchor) {
         for (const el of children) {
           el.mount(tag);
-          el?.anchor?.mount(tag);
         }
         target.insertBefore(tag, anchor || null);
         if (this.onMount)
@@ -224,7 +227,11 @@ class Util {
       },
       delete() {
         for (const fn of destroy) fn();
-        node.parentNode.removeChild(node);
+        for (const el of children) {
+          el.delete();
+          el?.anchor?.delete();
+        }
+        tag.parentNode.removeChild(tag);
         for (const callback of onUnmount) callback();
       },
     };
@@ -233,6 +240,9 @@ class Util {
 
 class React {
   static Fragment = Symbol();
+  static If = Symbol();
+  static Else = Symbol();
+  static ElseIf = Symbol();
   static createElement(tagName, attributes, ...children) {
     if (tagName === React.Fragment) return Util.createNode(children);
     if (typeof tagName === "function") {
@@ -255,13 +265,17 @@ class React {
     Global.isMounted = false;
   }
 }
+export const useEffect = (func) => {
+  Global.subScribe(func, func);
+};
 export const useState = (data) => {
   const state = new Store(data);
   return (newVal) => {
-    if (!newVal) return state.val;
+    if (newVal === undefined) return state.val;
     if (typeof newVal === "function") {
       state.val = newVal(state.val);
     } else state.val = newVal;
+    return state.val;
   };
 };
 
@@ -271,17 +285,74 @@ export const onMount = (data) => {
 
 export const If = (prop) => {
   if (!prop.condition) throw new Error(`condition attribute missing in If`);
-  const node = Util.createNode(prop.children);
-  node.anchor = Util.createTextNode("");
-  node.condition = Global.subScribe(prop.condition, () => {
-    const newVal = prop.condition();
-    if (node.condition === newVal) return;
-    node.condition = newVal;
-    if (newVal) {
-      node.mount(node.anchor.node.parentNode, node.anchor.node);
-    } else node.delete();
-  });
+  const node = {
+    type: React.If,
+    anchor: Util.createTextNode(""),
+    body: [],
+    currentNode: null,
+    create() {
+      for (const el of this.body) el.create();
+      this?.else?.create();
+      this.anchor.create();
+    },
+    mount(target, anchor) {
+      Global.subScribe(
+        () => {
+          this.currentNode = node?.else;
+          for (const el of this.body) {
+            if (el.condition()) this.currentNode = el;
+          }
+        },
+        () => {
+          let el = node?.else;
+          for (const child of this.body) if (child.condition()) el = child;
+          if (el) {
+            if (el === this.currentNode) return;
+            this.currentNode?.delete();
+            el.mount(this.anchor.node.parentNode, this.anchor.node);
+            this.currentNode = el;
+          } else {
+            this.currentNode?.delete();
+            this.currentNode = null;
+          }
+        }
+      );
+      this.currentNode?.mount(target, anchor);
+      this.anchor.mount(target, anchor);
+    },
+    delete() {
+      for (const el of this.body) el.delete();
+    },
+  };
+  const ifBody = [];
+  for (const child of prop.children) {
+    switch (child?.type) {
+      case React.Else: {
+        node.else = child;
+        break;
+      }
+      case React.ElseIf: {
+        node.body.push(child);
+        break;
+      }
+      default:
+        ifBody.push(child);
+    }
+  }
+  node.body.unshift(ElseIf({ children: ifBody, condition: prop.condition }));
   return node;
 };
 
+export const Else = (prop) => {
+  const node = Util.createNode(prop.children);
+  node.type = React.Else;
+  return node;
+};
+export const ElseIf = (prop) => {
+  if (!prop.condition) throw new Error(`condition attribute missing in ElseIf`);
+  const node = Util.createNode(prop.children);
+  node.type = React.ElseIf;
+  node.condition = prop.condition;
+  return node;
+};
 export default React;

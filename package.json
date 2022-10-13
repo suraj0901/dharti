@@ -1,17 +1,16 @@
 {
-  "name": "zippy",
-  "version": "0.0.1",
+  "name": "dharti",
+  "version": "0.0.10",
   "description": "easy, light and fast library or building user interface",
   "main": "index.js",
   "type": "module",
-  "private": false,
   "repository": {
     "type": "git",
-    "url": "https://github.com/suraj0901/reactive"
+    "url": "https://github.com/suraj0901/dharti"
   },
   "keywords": [
-    "reactive",
-    "reactivejs"
+    "dharti",
+    "dhartijs"
   ],
   "license": "MIT",
   "author": "suraj"
