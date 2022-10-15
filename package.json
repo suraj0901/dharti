@@ -1,6 +1,6 @@
 {
   "name": "dharti",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "description": "easy, light and fast library or building user interface",
   "main": "index.js",
   "type": "module",
