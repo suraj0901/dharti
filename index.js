@@ -81,8 +81,10 @@ class Util {
         this?.anchor?.create();
       },
       mount(target, anchor) {
-        for (const el of children) el.mount(target, anchor);
-        this?.anchor?.mount(target, anchor);
+        for (const el of children) {
+          el.mount(target, anchor);
+          el?.anchor?.mount(target, anchor);
+        }
       },
       delete() {
         for (const el of children) {
@@ -95,9 +97,11 @@ class Util {
   static handleAttributes(tag, attributes, destroy) {
     for (let prop in attributes) {
       switch (true) {
+        case /key|show|hide/.test(prop): {
+          break;
+        }
         case /ref/.test(prop): {
-          const value = attributes[prop]();
-          value.current = tag;
+          attributes[prop]()(tag);
           break;
         }
         case /^on/.test(prop): {
@@ -116,9 +120,6 @@ class Util {
           tag.addEventListener(event, fn);
           destroy.push(() => tag.removeEventListener(event, fn));
           Global.subScribe(callback, () => (tag[value] = callback()));
-        }
-        case /key/.test(prop): {
-          break;
         }
         case /className/.test(prop):
           prop = "class";
@@ -161,12 +162,18 @@ class Util {
             el = array_block.get(key);
           } else {
             el.create();
+            el?.anchor?.create();
             el.mount(node.anchor.node.parentNode, node.anchor.node);
+            el?.anchor?.mount(node.anchor.node.parentNode, node.anchor.node);
           }
           updated_array_block.add(key, el);
         }
         for (const key in array_block.keys()) {
-          if (!updated_array_block.has(key)) array_block.get(key).delete();
+          if (!updated_array_block.has(key)) {
+            const el = array_block.get(key);
+            el.delete();
+            el?.anchor?.delete();
+          }
         }
         array_block = updated_array_block;
       };
@@ -207,18 +214,24 @@ class Util {
     const destroy = [];
     const onUnmount = [];
     let tag;
-    return {
+    const node = {
       key: attributes?.key?.(),
+      mounted: false,
       create() {
         tag = document.createElement(name);
         if (attributes) Util.handleAttributes(tag, attributes, destroy);
         Util.handleCreateChildren(children);
+        this?.anchor?.create();
       },
       mount(target, anchor) {
+        if (this.mounted) return;
+        if (this?.shouldNotMount) return;
         for (const el of children) {
           el.mount(tag);
+          el?.anchor?.mount(tag);
         }
         target.insertBefore(tag, anchor || null);
+        this.mounted = true;
         if (this.onMount)
           for (const callback of this.onMount) {
             const unMountFunc = callback();
@@ -226,15 +239,32 @@ class Util {
           }
       },
       delete() {
+        if (!this.mounted) return;
         for (const fn of destroy) fn();
         for (const el of children) {
           el.delete();
           el?.anchor?.delete();
         }
         tag.parentNode.removeChild(tag);
+        this.mounted = false;
         for (const callback of onUnmount) callback();
       },
     };
+    if (attributes?.show || attributes?.hide) {
+      node.anchor = Util.createTextNode("");
+      node.shouldNotMount = Global.subScribe(
+        () => attributes?.hide?.() ?? !attributes?.show?.(),
+        () => {
+          if (
+            (node.shouldNotMount =
+              attributes?.hide?.() ?? !attributes?.show?.())
+          )
+            node.delete();
+          else node.mount(node.anchor.node.parentNode, node.anchor.node);
+        }
+      );
+    }
+    return node;
   }
 }
 
@@ -260,6 +290,7 @@ class React {
       const onMount = Global.onMount.flush();
       if (onMount.length) root.onMount = onMount;
       root?.create();
+      root?.anchor?.mount(target);
       root?.mount(target);
     } else target.append(root);
     Global.isMounted = false;
@@ -309,10 +340,13 @@ export const If = (prop) => {
           if (el) {
             if (el === this.currentNode) return;
             this.currentNode?.delete();
+            this.currentNode?.anchor?.delete();
             el.mount(this.anchor.node.parentNode, this.anchor.node);
+            el?.anchor?.mount(this.anchor.node.parentNode, this.anchor.node);
             this.currentNode = el;
           } else {
             this.currentNode?.delete();
+            this.currentNode?.anchor?.delete();
             this.currentNode = null;
           }
         }
