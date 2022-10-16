@@ -103,17 +103,17 @@ class Util {
         case /^attr:/.test(prop): {
           const value = prop.slice(5);
           const callback = attributes[prop];
-          const result = Global.subScribe(callback, () => {
-            tag.setAttribute(value, callback());
+          let result = Global.subScribe(callback, () => {
+            if (result !== (result = callback())) tag.style[value] = result;
           });
-          tag.setAttribute(value, result);
+          tag.style[value] = result;
           break;
         }
         case /^class:/.test(prop): {
           const value = prop.slice(6);
           const callback = attributes[prop];
-          const result = Global.subScribe(callback, () => {
-            tag.classList.toggle(value);
+          let result = Global.subScribe(callback, () => {
+            if (result !== (result = callback())) tag.classList.toggle(value);
           });
           if (result) {
             tag.classList.add(value);
@@ -134,8 +134,7 @@ class Util {
         case /^bind:/.test(prop): {
           const value = prop.slice(5);
           const callback = attributes[prop]();
-          const event =
-            tag.type === "number" || tag.type === "text" ? "input" : "change";
+          const event = "input";
           const fn = ({ target }) => callback(target[value]);
           tag.addEventListener(event, fn);
           destroy.push(() => tag.removeEventListener(event, fn));
@@ -329,9 +328,8 @@ export const useState = (data) => {
     return state.val;
   };
 };
-
 export const clone = (obj) => {
-  if (!obj instanceof Object) return obj;
+  if (typeof obj !== "object") return obj;
   var newObj = obj instanceof Array ? [] : {};
   for (const i in obj) {
     if (obj[i] && typeof obj[i] == "object") {
