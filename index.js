@@ -97,7 +97,27 @@ class Util {
   static handleAttributes(tag, attributes, destroy) {
     for (let prop in attributes) {
       switch (true) {
-        case /key|show|hide/.test(prop): {
+        case /key/.test(prop): {
+          break;
+        }
+        case /^attr:/.test(prop): {
+          const value = prop.slice(5);
+          const callback = attributes[prop];
+          const result = Global.subScribe(callback, () => {
+            tag.setAttribute(value, callback());
+          });
+          tag.setAttribute(value, result);
+          break;
+        }
+        case /^class:/.test(prop): {
+          const value = prop.slice(6);
+          const callback = attributes[prop];
+          const result = Global.subScribe(callback, () => {
+            tag.classList.toggle(value);
+          });
+          if (result) {
+            tag.classList.add(value);
+          }
           break;
         }
         case /ref/.test(prop): {
@@ -120,17 +140,16 @@ class Util {
           tag.addEventListener(event, fn);
           destroy.push(() => tag.removeEventListener(event, fn));
           Global.subScribe(callback, () => (tag[value] = callback()));
+          break;
         }
         case /className/.test(prop):
           prop = "class";
         default: {
           let value = attributes[prop];
           if (typeof value === "function") {
-            value = Global.subScribe(value, () =>
-              tag.setAttribute(prop, value())
-            );
-          }
-          tag.setAttribute(prop, value);
+            Global.subScribe(value, () => tag.setAttribute(prop, value()));
+            tag.setAttribute(prop, value());
+          } else tag.setAttribute(prop, value);
         }
       }
     }
@@ -299,15 +318,27 @@ class React {
 export const useEffect = (func) => {
   Global.subScribe(func, func);
 };
+
 export const useState = (data) => {
   const state = new Store(data);
   return (newVal) => {
     if (newVal === undefined) return state.val;
     if (typeof newVal === "function") {
-      state.val = newVal(state.val);
+      state.val = newVal(clone(state.val));
     } else state.val = newVal;
     return state.val;
   };
+};
+
+export const clone = (obj) => {
+  if (!obj instanceof Object) return obj;
+  var newObj = obj instanceof Array ? [] : {};
+  for (const i in obj) {
+    if (obj[i] && typeof obj[i] == "object") {
+      newObj[i] = clone(obj[i]);
+    } else newObj[i] = obj[i];
+  }
+  return newObj;
 };
 
 export const onMount = (data) => {
@@ -389,4 +420,20 @@ export const ElseIf = (prop) => {
   node.condition = prop.condition;
   return node;
 };
+export const nanoid = (t = 21) =>
+  crypto
+    .getRandomValues(new Uint8Array(t))
+    .reduce(
+      (t, e) =>
+        (t +=
+          (e &= 63) < 36
+            ? e.toString(36)
+            : e < 62
+            ? (e - 26).toString(36).toUpperCase()
+            : e < 63
+            ? "_"
+            : "-"),
+      ""
+    );
+
 export default React;
